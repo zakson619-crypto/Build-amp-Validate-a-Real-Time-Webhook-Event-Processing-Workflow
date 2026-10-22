@@ -1,0 +1,237 @@
+{
+  "name": "Topic - 9- Webhook New User - Token Validation & Normalization",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-user",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "233ca3c5-7086-43aa-9806-ec17d45a26be",
+      "name": "Webhook_NewUser",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        288
+      ],
+      "webhookId": "5d2a7c10-8b3e-4f6a-9c41-2e7b1a9d3f02"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "x1",
+              "name": "name",
+              "value": "={{ $json.body.name ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "x2",
+              "name": "email",
+              "value": "={{ $json.body.email ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "x3",
+              "name": "token",
+              "value": "={{ $json.headers['x-webhook-token'] ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "x4",
+              "name": "query",
+              "value": "={{ $json.query ?? {} }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bd580a59-37c5-46ba-be9d-64d23616b506",
+      "name": "Set_ExtractRequestData",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c-token",
+              "leftValue": "={{ $json.token !== '' && $json.token === ($env.WEBHOOK_TOKEN || 'demo-token-change-me') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0e3079e8-c31b-4e91-8879-0540d52368da",
+      "name": "IF_IsTokenValid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        528,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "n1",
+              "name": "name",
+              "value": "={{ String($json.name).trim().toLowerCase().replace(/\\b\\w/g, c => c.toUpperCase()) }}",
+              "type": "string"
+            },
+            {
+              "id": "n2",
+              "name": "email",
+              "value": "={{ String($json.email).trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "n3",
+              "name": "processedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "n4",
+              "name": "status",
+              "value": "NORMALIZED",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bb1a4429-1013-4834-86d4-80ec6b359f8a",
+      "name": "Set_NormalizePayload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'success', message: 'User received and normalized', user: { name: $json.name, email: $json.email }, processedAt: $json.processedAt } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "fa5a0826-e617-4e41-bef9-720b5eb6b8df",
+      "name": "Resp_200Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'error', message: 'Forbidden: missing or invalid X-Webhook-Token header' } }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "acdb9edc-e6d8-46dc-a649-cbf21cc8da12",
+      "name": "Resp_403Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        784,
+        400
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook_NewUser": {
+      "main": [
+        [
+          {
+            "node": "Set_ExtractRequestData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_ExtractRequestData": {
+      "main": [
+        [
+          {
+            "node": "IF_IsTokenValid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF_IsTokenValid": {
+      "main": [
+        [
+          {
+            "node": "Set_NormalizePayload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resp_403Forbidden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_NormalizePayload": {
+      "main": [
+        [
+          {
+            "node": "Resp_200Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6bb5b501-ffd7-4a7a-9898-01821d0384dd",
+  "meta": {
+    "instanceId": "a03c7678428ef19ededbf912f16f7d5798ec7b9ab4c17f2a2def6a9e791e7215"
+  },
+  "nodeGroups": [],
+  "id": "glQLFGO7ihGCHwib",
+  "tags": []
+}
